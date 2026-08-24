@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#10b981">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Zenith - Offline Personal Manager</title>
+<link rel="manifest" href="data:application/manifest+json;utf-8,%7B%22name%22%3A%22Zenith%22%2C%22short_name%22%3A%22Zenith%22%2C%22display%22%3A%22standalone%22%2C%22start_url%22%3A%22.%22%2C%22background_color%22%3A%22%230b0f17%22%2C%22theme_color%22%3A%22%2310b981%22%7D">
+<style>
+:root {
+  --primary: #10b981;
+  --primary-dark: #059669;
+  --secondary: #6366f1;
+  --bg: #0b0f17;
+  --surface: #161e2e;
+  --card: #1e293b;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --red: #ef4444;
+  --green: #10b981;
+  --orange: #f59e0b;
+}
+body.light-mode {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --card: #f1f5f9;
+  --text: #0f172a;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+body { background: var(--bg); color: var(--text); padding-bottom: 75px; min-height: 100vh; }
+.header { padding: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 100; }
+.title { font-size: 20px; font-weight: bold; color: var(--primary); }
+.btn-icon { background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 10px; cursor: pointer; font-size: 14px; }
+.tab-content { display: none; padding: 16px; }
+.tab-content.active { display: block; animation: fadeIn 0.2s ease-in-out; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* Cards & Stats */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 14px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.card-title { font-weight: bold; font-size: 15px; }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px; text-align: center; }
+.stat-val { font-size: 18px; font-weight: bold; margin-top: 4px; }
+.stat-label { font-size: 11px; color: var(--text-muted); }
+
+/* Progress Bar */
+.progress-bar { height: 8px; background: var(--card); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+.progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s ease; }
+
+/* List items */
+.item-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.item-row:last-child { border-bottom: none; }
+.item-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text-muted); display: flex; align-items: center; justify-content: center; cursor: pointer; margin-right: 12px; }
+.item-check.done { background: var(--primary); border-color: var(--primary); color: white; }
+.item-title.done { text-decoration: line-through; opacity: 0.5; }
+
+/* Form inputs */
+input, select, textarea { width: 100%; background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 10px; margin-bottom: 10px; font-size: 14px; }
+button.btn-primary { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: bold; font-size: 15px; cursor: pointer; }
+
+/* Bottom Nav */
+.nav-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; justify-content: space-around; padding: 8px 0; z-index: 1000; }
+.nav-btn { background: none; border: none; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; font-size: 11px; cursor: pointer; width: 25%; }
+.nav-btn.active { color: var(--primary); font-weight: bold; }
+.nav-btn svg { width: 22px; height: 22px; margin-bottom: 3px; fill: currentColor; }
+
+/* FAB */
+.fab { position: fixed; bottom: 85px; right: 18px; width: 54px; height: 54px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 12px rgba(16,185,129,0.4); cursor: pointer; border: none; z-index: 999; }
+
+/* Modal */
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 2000; align-items: center; justify-content: center; padding: 20px; }
+.modal.active { display: flex; }
+.modal-content { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px; width: 100%; max-width: 360px; max-height: 90vh; overflow-y: auto; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">🌿 Zenith</div>
+  <div>
+    <button class="btn-icon" onclick="toggleTheme()">🌓 Theme</button>
+  </div>
+</div>
+
+<!-- 1. DASHBOARD TAB -->
+<div id="tab-today" class="tab-content active">
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Routines</div>
+      <div id="stat-routines" class="stat-val">0/0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Prayers</div>
+      <div id="stat-prayers" class="stat-val">0/5</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Net Balance</div>
+      <div id="stat-balance" class="stat-val" style="color:var(--green)">$0</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">📅 Today's Routines & Habits</div>
+      <button class="btn-icon" onclick="showModal('modal-routine')">+ Add</button>
+    </div>
+    <div id="today-routine-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🕌 Daily Prayers & Reflection</div>
+    </div>
+    <div id="today-prayer-list"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">💳 Financial Snapshot</div>
+      <button class="btn-icon" onclick="showModal('modal-tx')">+ Log</button>
+    </div>
+    <div>Spent this month: <b id="dash-spent">$0.00</b> / Budget: <b id="dash-budget">$800.00</b></div>
+    <div class="progress-bar"><div id="budget-progress-bar" class="progress-fill"></div></div>
+  </div>
+</div>
+
+<!-- 2. FINANCES TAB -->
+<div id="tab-finances" class="tab-content">
+  <div class="card" style="text-align:center;">
+    <div class="stat-label">Total Net Balance</div>
+    <div id="fin-net-total" style="font-size:28px; font-weight:bold; color:var(--green); margin:6px 0;">$0.00</div>
+    <div style="display:flex; justify-content:space-around; margin-top:10px;">
+      <div><span class="stat-label">Income:</span> <b id="fin-income" style="color:var(--green)">+$0.00</b></div>
+      <div><span class="stat-label">Expense:</span> <b id="fin-expense" style="color:var(--red)">-$0.00</b></div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px; margin-bottom:14px;">
+    <button class="btn-primary" style="flex:1" onclick="showModal('modal-tx')">+ Add Transaction</button>
+    <button class="btn-icon" onclick="exportCsv()">📥 Export CSV</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px;">Recent Transactions</div>
+    <div id="tx-list"></div>
+  </div>
+</div>
+
+<!-- 3. ROUTINES TAB -->
+<div id="tab-routines" class="tab-content">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">🔥 Daily Habits & Routines</div>
+      <button class="btn-icon" onclick="showModal('modal-routine')">+ Add</button>
+    </div>
+    <div id="all-routine-list"></div>
+  </div>
+</div>
+
+<!-- 4. JOURNAL TAB -->
+<div id="tab-journal" class="tab-content">
+  <div style="margin-bottom:14px;">
+    <button class="btn-primary" onclick="showModal('modal-journal')">✍️ Write New Journal Note</button>
+  </div>
+  <div id="journal-list"></div>
+</div>
+
+<!-- FLOATING ACTION BUTTON -->
+<button class="fab" onclick="showModal('modal-quick')">⚡</button>
+
+<!-- BOTTOM NAVIGATION -->
+<div class="nav-bar">
+  <button class="nav-btn active" onclick="switchTab('today')">
+    <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    Today
+  </button>
+  <button class="nav-btn" onclick="switchTab('finances')">
+    <svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+    Finances
+  </button>
+  <button class="nav-btn" onclick="switchTab('routines')">
+    <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+    Schedule
+  </button>
+  <button class="nav-btn" onclick="switchTab('journal')">
+    <svg viewBox="0 0 24 24"><path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h5v8l-2.5-1.5L6 12V4z"/></svg>
+    Journal
+  </button>
+</div>
+
+<!-- MODALS -->
+<!-- Quick Action Modal -->
+<div id="modal-quick" class="modal">
+  <div class="modal-content">
+    <div class="card-header">
+      <div class="card-title">Quick Actions</div>
+      <button class="btn-icon" onclick="hideModals()">✕</button>
+    </div>
+    <button class="btn-primary" style="margin-bottom:10px; background:var(--red);" onclick="hideModals(); showModal('modal-tx')">💳 Log Expense / Income</button>
+    <button class="btn-primary" style="margin-bottom:10px; background:var(--primary);" onclick="hideModals(); showModal('modal-routine')">📅 Add Routine / Habit</button>
+    <button class="btn-primary" style="background:var(--secondary);" onclick="hideModals(); showModal('modal-journal')">✍️ Write Journal Entry</button>
+  </div>
+</div>
+
+<!-- Add Transaction Modal -->
+<div id="modal-tx" class="modal">
+  <div class="modal-content">
+    <div class="card-header">
+      <div class="card-title">Add Transaction</div>
+      <button class="btn-icon" onclick="hideModals()">✕</button>
+    </div>
+    <select id="tx-type">
+      <option value="expense">Expense</option>
+      <option value="income">Income</option>
+    </select>
+    <input type="number" id="tx-amount" placeholder="Amount ($)" step="0.01" required>
+    <select id="tx-cat">
+      <option value="Food">Food</option>
+      <option value="Transport">Transport</option>
+      <option value="Bills">Bills</option>
+      <option value="Shopping">Shopping</option>
+      <option value="Salary">Salary</option>
+      <option value="Health">Health</option>
+      <option value="Other">Other</option>
+    </select>
+    <input type="text" id="tx-note" placeholder="Note (e.g. Groceries)">
+    <button class="btn-primary" onclick="saveTransaction()">Save Transaction</button>
+  </div>
+</div>
+
+<!-- Add Routine Modal -->
+<div id="modal-routine" class="modal">
+  <div class="modal-content">
+    <div class="card-header">
+      <div class="card-title">Add Routine / Habit</div>
+      <button class="btn-icon" onclick="hideModals()">✕</button>
+    </div>
+    <input type="text" id="rt-title" placeholder="Routine title (e.g. Morning Stretch)" required>
+    <input type="time" id="rt-time" value="08:00">
+    <select id="rt-type">
+      <option value="morning">Morning</option>
+      <option value="afternoon">Afternoon</option>
+      <option value="evening">Evening</option>
+    </select>
+    <button class="btn-primary" onclick="saveRoutine()">Save Routine</button>
+  </div>
+</div>
+
+<!-- Add Journal Modal -->
+<div id="modal-journal" class="modal">
+  <div class="modal-content">
+    <div class="card-header">
+      <div class="card-title">New Journal Note</div>
+      <button class="btn-icon" onclick="hideModals()">✕</button>
+    </div>
+    <input type="text" id="jn-title" placeholder="Title">
+    <select id="jn-mood">
+      <option value="Great">😊 Great</option>
+      <option value="Good" selected>🙂 Good</option>
+      <option value="Neutral">😐 Neutral</option>
+      <option value="Low">😔 Low</option>
+    </select>
+    <textarea id="jn-content" rows="6" placeholder="Write your thoughts..."></textarea>
+    <button class="btn-primary" onclick="saveJournal()">Save Entry</button>
+  </div>
+</div>
+
+<script>
+// LOCAL STATE & PERSISTENCE
+const defaultData = {
+  routines: [
+    { id: 1, title: 'Hydrate & Morning Stretch', time: '07:00', type: 'morning', streak: 3, done: false },
+    { id: 2, title: 'Deep Focus Work Block', time: '09:30', type: 'morning', streak: 5, done: false },
+    { id: 3, title: 'Afternoon Walk', time: '15:00', type: 'afternoon', streak: 2, done: false },
+    { id: 4, title: 'Reading & Reflection', time: '21:30', type: 'evening', streak: 4, done: false }
+  ],
+  prayers: [
+    { id: 1, name: 'Fajr / Dawn Reflection', time: '05:30', done: false },
+    { id: 2, name: 'Dhuhr / Midday Pause', time: '13:00', done: false },
+    { id: 3, name: 'Asr / Afternoon Mindfulness', time: '16:45', done: false },
+    { id: 4, name: 'Maghrib / Sunset Gratitude', time: '19:15', done: false },
+    { id: 5, name: 'Isha / Night Reflection', time: '20:45', done: false }
+  ],
+  transactions: [
+    { id: 1, type: 'expense', amount: 14.50, category: 'Food', note: 'Coffee and breakfast', date: new Date().toISOString().substring(0,10) }
+  ],
+  budgetLimit: 800,
+  journal: [
+    { id: 1, title: 'Welcome to Zenith', mood: 'Great', content: '100% offline personal management app. All data is saved on your device storage!', date: new Date().toISOString().substring(0,10) }
+  ]
+};
+
+let appData = JSON.parse(localStorage.getItem('zenith_data')) || defaultData;
+
+function saveData() {
+  localStorage.setItem('zenith_data', JSON.stringify(appData));
+  renderAll();
+}
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tabId).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+function toggleTheme() {
+  document.body.classList.toggle('light-mode');
+}
+
+function showModal(id) { document.getElementById(id).classList.add('active'); }
+function hideModals() { document.querySelectorAll('.modal').forEach(m => m.classList.remove('active')); }
+
+// CRUD OPERATIONS
+function toggleRoutine(id) {
+  const r = appData.routines.find(x => x.id === id);
+  if (r) {
+    r.done = !r.done;
+    r.streak += r.done ? 1 : -1;
+    if (r.streak < 0) r.streak = 0;
+    saveData();
+  }
+}
+
+function togglePrayer(id) {
+  const p = appData.prayers.find(x => x.id === id);
+  if (p) {
+    p.done = !p.done;
+    saveData();
+  }
+}
+
+function saveTransaction() {
+  const type = document.getElementById('tx-type').value;
+  const amount = parseFloat(document.getElementById('tx-amount').value);
+  const category = document.getElementById('tx-cat').value;
+  const note = document.getElementById('tx-note').value;
+  if (!amount || amount <= 0) return alert('Enter valid amount');
+
+  appData.transactions.unshift({
+    id: Date.now(),
+    type,
+    amount,
+    category,
+    note,
+    date: new Date().toISOString().substring(0,10)
+  });
+  document.getElementById('tx-amount').value = '';
+  document.getElementById('tx-note').value = '';
+  hideModals();
+  saveData();
+}
+
+function saveRoutine() {
+  const title = document.getElementById('rt-title').value;
+  const time = document.getElementById('rt-time').value;
+  const type = document.getElementById('rt-type').value;
+  if (!title) return alert('Enter routine name');
+
+  appData.routines.push({
+    id: Date.now(),
+    title,
+    time,
+    type,
+    streak: 0,
+    done: false
+  });
+  document.getElementById('rt-title').value = '';
+  hideModals();
+  saveData();
+}
+
+function saveJournal() {
+  const title = document.getElementById('jn-title').value || 'Daily Thought';
+  const mood = document.getElementById('jn-mood').value;
+  const content = document.getElementById('jn-content').value;
+  if (!content) return alert('Please write some content');
+
+  appData.journal.unshift({
+    id: Date.now(),
+    title,
+    mood,
+    content,
+    date: new Date().toISOString().substring(0,10)
+  });
+  document.getElementById('jn-title').value = '';
+  document.getElementById('jn-content').value = '';
+  hideModals();
+  saveData();
+}
+
+function exportCsv() {
+  let csv = 'ID,Type,Amount,Category,Note,Date\n';
+  appData.transactions.forEach(t => {
+    csv += `${t.id},${t.type},${t.amount},${t.category},"${t.note}",${t.date}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'zenith_transactions.csv';
+  a.click();
+}
+
+// RENDER FUNCTION
+function renderAll() {
+  // Routines stats
+  const doneRoutines = appData.routines.filter(r => r.done).length;
+  document.getElementById('stat-routines').innerText = `${doneRoutines}/${appData.routines.length}`;
+
+  // Prayers stats
+  const donePrayers = appData.prayers.filter(p => p.done).length;
+  document.getElementById('stat-prayers').innerText = `${donePrayers}/${appData.prayers.length}`;
+
+  // Financial stats
+  let inc = 0, exp = 0;
+  appData.transactions.forEach(t => {
+    if (t.type === 'income') inc += t.amount;
+    else exp += t.amount;
+  });
+  const net = inc - exp;
+  document.getElementById('stat-balance').innerText = `$${net.toFixed(2)}`;
+  document.getElementById('stat-balance').style.color = net >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('fin-net-total').innerText = `$${net.toFixed(2)}`;
+  document.getElementById('fin-income').innerText = `+$${inc.toFixed(2)}`;
+  document.getElementById('fin-expense').innerText = `-$${exp.toFixed(2)}`;
+  document.getElementById('dash-spent').innerText = `$${exp.toFixed(2)}`;
+  
+  const pct = Math.min(100, (exp / appData.budgetLimit) * 100);
+  document.getElementById('budget-progress-bar').style.width = pct + '%';
+
+  // Render routine lists
+  const renderRoutineHtml = r => `
+    <div class="item-row">
+      <div style="display:flex; align-items:center;">
+        <div class="item-check ${r.done ? 'done' : ''}" onclick="toggleRoutine(${r.id})">${r.done ? '✓' : ''}</div>
+        <div>
+          <div class="item-title ${r.done ? 'done' : ''}">${r.title}</div>
+          <div style="font-size:11px; color:var(--text-muted);">${r.time} • 🔥 ${r.streak} day streak</div>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('today-routine-list').innerHTML = appData.routines.map(renderRoutineHtml).join('') || '<div style="color:var(--text-muted)">No routines yet.</div>';
+  document.getElementById('all-routine-list').innerHTML = appData.routines.map(renderRoutineHtml).join('') || '<div style="color:var(--text-muted)">No routines yet.</div>';
+
+  // Render prayer list
+  document.getElementById('today-prayer-list').innerHTML = appData.prayers.map(p => `
+    <div class="item-row">
+      <div style="display:flex; align-items:center;">
+        <div class="item-check ${p.done ? 'done' : ''}" onclick="togglePrayer(${p.id})">${p.done ? '✓' : ''}</div>
+        <div>
+          <div class="item-title ${p.done ? 'done' : ''}">${p.name}</div>
+          <div style="font-size:11px; color:var(--text-muted);">${p.time}</div>
+        </div>
+      </div>
+    </div>`).join('');
+
+  // Render Transactions
+  document.getElementById('tx-list').innerHTML = appData.transactions.map(t => `
+    <div class="item-row">
+      <div>
+        <div style="font-weight:bold;">${t.category}</div>
+        <div style="font-size:11px; color:var(--text-muted);">${t.note ? t.note + ' • ' : ''}${t.date}</div>
+      </div>
+      <div style="font-weight:bold; color:${t.type === 'income' ? 'var(--green)' : 'var(--red)'}">
+        ${t.type === 'income' ? '+' : '-'}$${t.amount.toFixed(2)}
+      </div>
+    </div>`).join('') || '<div style="color:var(--text-muted)">No transactions yet.</div>';
+
+  // Render Journal
+  document.getElementById('journal-list').innerHTML = appData.journal.map(j => `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">${j.title}</div>
+        <span style="font-size:12px; color:var(--text-muted);">${j.mood} • ${j.date}</span>
+      </div>
+      <div style="font-size:13px; line-height:1.5; color:var(--text); white-space:pre-wrap;">${j.content}</div>
+    </div>`).join('') || '<div style="color:var(--text-muted)">No journal entries yet.</div>';
+}
+
+renderAll();
+</script>
+</body>
+</html>
