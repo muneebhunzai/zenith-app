@@ -30,8 +30,13 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Initialize Android Wrapper
-        run: flutter create . --platforms=android --org com.zenith --project-name zenith_life
+      - name: Generate Gradle Wrapper
+        run: |
+          if [ ! -f "android/gradlew" ]; then
+            echo "Generating missing Gradle Wrapper..."
+            cd android && gradle wrapper && cd ..
+          fi
+          chmod +x android/gradlew || true
 
       - name: Get Dependencies
         run: flutter pub get
