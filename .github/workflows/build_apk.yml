@@ -30,13 +30,11 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generate Gradle Wrapper
+      - name: Generate Clean Android Platform
         run: |
-          if [ ! -f "android/gradlew" ]; then
-            echo "Generating missing Gradle Wrapper..."
-            cd android && gradle wrapper && cd ..
-          fi
-          chmod +x android/gradlew || true
+          rm -rf android
+          flutter create . --platforms=android --org com.zenith --project-name zenith_life
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" \/>\n    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" \/>\n    <uses-permission android:name="android.permission.USE_EXACT_ALARM" \/>\n    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" \/>' android/app/src/main/AndroidManifest.xml
 
       - name: Get Dependencies
         run: flutter pub get
